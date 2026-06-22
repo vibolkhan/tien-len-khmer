@@ -1,0 +1,44 @@
+/node_modules
+/dist
+/.env
+/coverage
+/.vscode
+.DS_Store
+*.log
+*.tsbuildinfo
+# Ignore IDE specific files
+.idea/
+*.sublime-project
+*.sublime-workspace
+# Ignore OS specific files
+Thumbs.db
+Desktop.ini
+# Ignore build artifacts
+/build
+/target
+# Ignore test output
+/test-output
+# Ignore temporary files
+/tmp
+# Ignore lock files
+package-lock.json
+yarn.lock
+# Ignore generated documentation
+/docs
+# Ignore compiled files
+*.class
+*.o
+*.so
+# Ignore backup files
+*.bak
+*.tmp
+# Ignore coverage reports
+/coverage
+# Ignore log files
+/logs
+# Ignore environment variable files
+.env
+.env.local
+.env.development
+.env.test
+.env.production

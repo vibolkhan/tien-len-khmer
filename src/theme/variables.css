@@ -1,0 +1,51 @@
+:root {
+  --ion-font-family: Arial, Helvetica, sans-serif;
+  --ion-color-primary: #16a34a;
+  --ion-color-primary-rgb: 22, 163, 74;
+  --ion-color-primary-contrast: #ffffff;
+}
+
+@media screen and (orientation: portrait) {
+  body::before {
+    content: "Please rotate your device to landscape mode";
+    position: fixed;
+    inset: 0;
+    background: #0f172a;
+    color: white;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 20px;
+  }
+}
+
+html,
+body,
+#app,
+ion-app,
+ion-router-outlet,
+ion-page,
+ion-content {
+  width: 100%;
+  height: 100%;
+}
+
+ion-content::part(scroll) {
+  min-height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media screen and (orientation: landscape) {
+  .home-bg,
+  .page,
+  .table {
+    min-height: 100dvh;
+    width: 100%;
+  }
+}

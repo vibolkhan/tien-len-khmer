@@ -162,7 +162,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { IonPage, IonContent, IonButton, IonAlert, IonIcon } from "@ionic/vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   hardwareChipOutline,
   personCircleOutline,
@@ -175,26 +176,39 @@ import {
   passTurn,
   playCards,
   createNewGame,
+  createOnlineGame,
   canBeat,
   detectMoveType,
 } from "../services/gameEngine";
 
 import {
   clearGame,
+  clearOnlineSession,
   getRanking,
   loadGame,
+  loadOnlineGame,
+  loadOnlineSession,
   saveGame,
+  saveOnlineGame,
   saveRanking,
 } from "../services/storage";
 import { getCardImage } from "../services/cardImage";
+import {
+  broadcastGameState,
+  closeRealtimeChannel,
+  openGameChannel,
+} from "../services/online";
 
 const router = useRouter();
+const route = useRoute();
 const game = ref<GameState | null>(null);
+const onlineSession = ref(loadOnlineSession());
 const selectedIds = ref<string[]>([]);
 const isBotThinking = ref(false);
 const hasPlayedGameOverSound = ref(false);
 const lastInvalidMoveSignature = ref("");
 let botTurnTimer: ReturnType<typeof setTimeout> | null = null;
+let onlineChannel: RealtimeChannel | null = null;
 const BOT_TURN_DELAY_MS = 2000;
 
 function createSound(fileName: string) {
@@ -223,9 +237,20 @@ const currentPlayer = computed(
   () => game.value!.players[game.value!.currentPlayerIndex],
 );
 
-const human = computed(() => game.value!.players.find((p) => p.isHuman)!);
-const bots = computed(() => game.value!.players.filter((p) => !p.isHuman));
-const isHumanTurn = computed(() => currentPlayer.value.isHuman);
+const human = computed(() => {
+  const localPlayerId = onlineSession.value?.playerId;
+
+  return (
+    game.value!.players.find((player) =>
+      localPlayerId ? player.id === localPlayerId : player.isHuman,
+    ) ?? game.value!.players[0]
+  );
+});
+const bots = computed(() =>
+  game.value!.players.filter((player) => player.id !== human.value.id),
+);
+const isOnlineGame = computed(() => game.value?.mode === "online");
+const isHumanTurn = computed(() => currentPlayer.value.id === human.value.id);
 
 const selectedCardsForAction = computed(() =>
   human.value.hand.filter((card) => selectedIds.value.includes(card.id)),
@@ -340,7 +365,49 @@ const winnerMessage = computed(() => {
     .join("\n");
 });
 
-onMounted(() => {
+onMounted(async () => {
+  const wantsOnlineGame = route.query.mode === "online";
+
+  if (wantsOnlineGame) {
+    onlineSession.value = loadOnlineSession();
+    game.value = loadOnlineGame();
+
+    if (!onlineSession.value || !game.value) {
+      router.replace("/home");
+      return;
+    }
+
+    try {
+      onlineChannel = await openGameChannel(onlineSession.value, {
+        onGameState: (onlineGame) => {
+          game.value = onlineGame;
+          selectedIds.value = [];
+          saveOnlineGame(onlineGame);
+        },
+        onRequestState: async (playerId) => {
+          if (
+            !onlineChannel ||
+            !game.value ||
+            playerId === onlineSession.value?.playerId
+          ) {
+            return;
+          }
+
+          await broadcastGameState(onlineChannel, game.value);
+        },
+      });
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not connect to online game.",
+      );
+      router.replace("/home");
+    }
+
+    return;
+  }
+
   game.value = loadGame();
 
   if (!game.value) {
@@ -353,12 +420,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearBotTurnTimer();
+  void closeRealtimeChannel(onlineChannel);
 });
 
 watch(isGameOver, (gameOver) => {
   if (!gameOver || hasPlayedGameOverSound.value || !game.value) return;
 
-  const humanPlace = game.value.finishedPlayerIds.indexOf("human");
+  const humanPlace = game.value.finishedPlayerIds.indexOf(human.value.id);
   playSound(humanPlace === 0 ? sounds.woooo : sounds.whoAreYou);
   hasPlayedGameOverSound.value = true;
 });
@@ -522,7 +590,7 @@ function getMoveName(cards: Card[]) {
   }
 
   if (cards.length >= 3 && isConsecutive) {
-    return `លំដាប់ ${rankLabel(uniqueRanks[0])}-${rankLabel(
+    return `រាងពី ${rankLabel(uniqueRanks[0])}​ ដល់​ ${rankLabel(
       uniqueRanks[uniqueRanks.length - 1],
     )}`;
   }
@@ -575,6 +643,22 @@ function selectedCards() {
   return selectedCardsForAction.value;
 }
 
+function persistGameState() {
+  if (!game.value) return;
+
+  if (isOnlineGame.value) {
+    saveOnlineGame(game.value);
+
+    if (onlineChannel) {
+      void broadcastGameState(onlineChannel, game.value);
+    }
+
+    return;
+  }
+
+  saveGame(game.value);
+}
+
 function play() {
   if (!game.value || !canPlay.value) return;
 
@@ -582,7 +666,7 @@ function play() {
   game.value = playCards(game.value, human.value.id, cards);
   playMoveSound(cards, true);
   selectedIds.value = [];
-  saveGame(game.value);
+  persistGameState();
   runBotTurns();
 }
 
@@ -591,14 +675,19 @@ function pass() {
 
   game.value = passTurn(game.value);
   playSound(sounds.soSilent);
-  saveGame(game.value);
+  persistGameState();
   runBotTurns();
 }
 
 function runBotTurns() {
   clearBotTurnTimer();
 
-  if (!game.value || isGameOver.value || currentPlayer.value.isHuman) {
+  if (
+    !game.value ||
+    isOnlineGame.value ||
+    isGameOver.value ||
+    currentPlayer.value.isHuman
+  ) {
     isBotThinking.value = false;
     return;
   }
@@ -606,7 +695,12 @@ function runBotTurns() {
   isBotThinking.value = true;
 
   botTurnTimer = setTimeout(() => {
-    if (!game.value || isGameOver.value || currentPlayer.value.isHuman) {
+    if (
+    !game.value ||
+    isOnlineGame.value ||
+    isGameOver.value ||
+    currentPlayer.value.isHuman
+  ) {
       isBotThinking.value = false;
       botTurnTimer = null;
       return;
@@ -624,7 +718,7 @@ function runBotTurns() {
       playSound(sounds.soSilent);
     }
 
-    saveGame(game.value);
+    persistGameState();
     isBotThinking.value = false;
     botTurnTimer = null;
     runBotTurns();
@@ -641,6 +735,12 @@ function clearBotTurnTimer() {
 function finishGame() {
   if (!game.value || !isGameOver.value) return;
 
+  if (isOnlineGame.value) {
+    clearOnlineSession();
+    router.replace("/home");
+    return;
+  }
+
   const ranking = getRanking();
   ranking.totalGames += 1;
 
@@ -650,7 +750,7 @@ function finishGame() {
     ranking.playerScores[playerId] =
       (ranking.playerScores[playerId] ?? 0) + points;
 
-    if (playerId === "human") {
+    if (playerId === human.value.id) {
       ranking.totalPoints += points;
       if (index === 0) ranking.totalWins += 1;
       if (index === game.value!.players.length - 1) ranking.totalLosses += 1;
@@ -661,7 +761,7 @@ function finishGame() {
     ranking.playerScores[playerId] =
       (ranking.playerScores[playerId] ?? 0) + points;
 
-    if (playerId === "human") {
+    if (playerId === human.value.id) {
       ranking.totalPoints += points;
     }
   });
@@ -680,9 +780,27 @@ function refreshCards() {
   playSound(sounds.shuffle);
   isBotThinking.value = false;
   hasPlayedGameOverSound.value = false;
-  game.value = createNewGame(game.value.difficulty);
+  if (isOnlineGame.value) {
+    if (!onlineSession.value?.isHost) {
+      alert("Only the lobby host can redeal an online game.");
+      return;
+    }
+
+    game.value = createOnlineGame(
+      game.value.players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        joinedAt: game.value!.startedAt,
+      })),
+      game.value.difficulty,
+      game.value.roomCode ?? onlineSession.value.roomCode,
+    );
+  } else {
+    game.value = createNewGame(game.value.difficulty);
+  }
+
   selectedIds.value = [];
-  saveGame(game.value);
+  persistGameState();
   runBotTurns();
 }
 </script>

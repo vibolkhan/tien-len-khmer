@@ -18,6 +18,14 @@
               ហ្គេមថ្មី
             </ion-button>
 
+            <ion-button expand="block" class="outline-btn" fill="outline" @click="createOnlineLobby">
+              Create Online Lobby
+            </ion-button>
+
+            <ion-button expand="block" class="outline-btn" fill="outline" @click="joinOnlineLobby">
+              Join Online Lobby
+            </ion-button>
+
             <ion-button
               expand="block"
               class="outline-btn"
@@ -46,6 +54,10 @@
               <ion-button fill="outline" class="small-btn" router-link="/settings">
                 ការកំណត់
               </ion-button>
+
+              <ion-button fill="outline" class="small-btn" router-link="/rules">
+                ច្បាប់
+              </ion-button>
             </div>
           </div>
         </div>
@@ -59,7 +71,19 @@ import { IonPage, IonContent, IonButton, IonIcon } from "@ionic/vue";
 import { expandOutline } from "ionicons/icons";
 import { useRouter } from "vue-router";
 import { createNewGame } from "../services/gameEngine";
-import { getDifficulty, loadGame, saveGame } from "../services/storage";
+import {
+  clearOnlineSession,
+  getDifficulty,
+  loadGame,
+  saveGame,
+  saveOnlineSession,
+} from "../services/storage";
+import {
+  createPlayerId,
+  createRoomCode,
+  isRealtimeConfigured,
+  normalizeRoomCode,
+} from "../services/online";
 
 const router = useRouter();
 const hasSavedGame = !!loadGame();
@@ -75,6 +99,49 @@ function newGame() {
 
 function continueGame() {
   router.push("/game");
+}
+
+function createOnlineLobby() {
+  if (!ensureRealtimeReady()) return;
+
+  const playerName = prompt("Your online display name", "Player 1")?.trim();
+  if (!playerName) return;
+
+  const roomCode = createRoomCode();
+  clearOnlineSession();
+  saveOnlineSession({
+    roomCode,
+    playerId: createPlayerId(),
+    playerName,
+    isHost: true,
+  });
+  router.push(`/lobby/${roomCode}`);
+}
+
+function joinOnlineLobby() {
+  if (!ensureRealtimeReady()) return;
+
+  const playerName = prompt("Your online display name", "Player")?.trim();
+  if (!playerName) return;
+
+  const roomCode = normalizeRoomCode(prompt("Room code") ?? "");
+  if (!roomCode) return;
+
+  clearOnlineSession();
+  saveOnlineSession({
+    roomCode,
+    playerId: createPlayerId(),
+    playerName,
+    isHost: false,
+  });
+  router.push(`/lobby/${roomCode}`);
+}
+
+function ensureRealtimeReady() {
+  if (isRealtimeConfigured()) return true;
+
+  alert("Online play needs VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment.");
+  return false;
 }
 
 async function enterFullscreen() {

@@ -4,6 +4,7 @@ import type {
   GameState,
   MoveType,
   PlayedMove,
+  OnlineLobbyPlayer,
   Player,
   Rank,
   Suit,
@@ -371,6 +372,45 @@ export function createNewGame(difficulty: Difficulty): GameState {
     activeSingleTwoCut: null,
     difficulty,
     startedAt: new Date().toISOString(),
+  };
+}
+
+export function createOnlineGame(
+  lobbyPlayers: OnlineLobbyPlayer[],
+  difficulty: Difficulty,
+  roomCode: string,
+): GameState {
+  const deck = shuffle(createDeck());
+
+  const players: Player[] = lobbyPlayers.slice(0, 4).map((player) => ({
+    id: player.id,
+    name: player.name,
+    isHuman: false,
+    hand: [],
+    passed: false,
+  }));
+
+  players.forEach((player, index) => {
+    player.hand = sortCards(deck.slice(index * 13, index * 13 + 13));
+  });
+
+  const firstPlayerIndex = players.findIndex((player) =>
+    player.hand.some((card) => card.rank === 3 && card.suit === "spades"),
+  );
+
+  return {
+    players,
+    currentPlayerIndex: firstPlayerIndex >= 0 ? firstPlayerIndex : 0,
+    lastMove: null,
+    tableCards: [],
+    winnerId: null,
+    finishedPlayerIds: [],
+    pointCuts: {},
+    activeSingleTwoCut: null,
+    difficulty,
+    startedAt: new Date().toISOString(),
+    mode: "online",
+    roomCode,
   };
 }
 

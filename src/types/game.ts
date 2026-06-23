@@ -16,6 +16,19 @@ export interface Player {
   passed: boolean;
 }
 
+export interface OnlineLobbyPlayer {
+  id: string;
+  name: string;
+  joinedAt: string;
+}
+
+export interface OnlineSession {
+  roomCode: string;
+  playerId: string;
+  playerName: string;
+  isHost: boolean;
+}
+
 export interface PlayedMove {
   playerId: string;
   cards: Card[];
@@ -51,6 +64,8 @@ export interface GameState {
   activeSingleTwoCut: SingleTwoCutState | null;
   difficulty: Difficulty;
   startedAt: string;
+  mode?: "local" | "online";
+  roomCode?: string;
 }
 
 export interface Ranking {

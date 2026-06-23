@@ -975,9 +975,10 @@ ion-content.game::part(scroll) {
 .table-card-image {
   width: var(--table-card-w);
   margin: 3px;
-  border-radius: 7px;
+  border-radius: 3px;
   background: aliceblue;
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.48);
+  padding: 3px;
 }
 
 .empty-table {
@@ -1242,8 +1243,9 @@ ion-content.game::part(scroll) {
   width: var(--card-w);
   height: auto;
   display: block;
-  border-radius: 8px;
+  border-radius: 3px;
   background: aliceblue;
+  padding: 3px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   user-select: none;
   pointer-events: none;
@@ -1372,11 +1374,6 @@ ion-button {
 
   .table-meta small {
     font-size: 10px;
-  }
-
-  .table-card-image {
-    margin: 2px;
-    border-radius: 6px;
   }
 
   .empty-table strong {

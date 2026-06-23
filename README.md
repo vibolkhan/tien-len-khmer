@@ -1,4 +1,4 @@
-# Tien Len Mien Bac - Ionic Vue
+# Tien Len Mien Bac
 
 Offline Tien Len Mien Bac card game built with Vue + Ionic.
 

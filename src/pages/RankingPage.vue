@@ -2,24 +2,24 @@
   <ion-page class="ranking-page">
     <ion-content class="ranking" fullscreen>
       <div class="page">
-        <h1>Ranking</h1>
+        <h1>ចំណាត់ថ្នាក់</h1>
 
         <ion-card class="rank-card">
           <ion-card-content>
             <div class="stat big">
               <span>{{ ranking.totalGames }}</span>
-              <p>Total Games</p>
+              <p>ហ្គេមសរុប</p>
             </div>
 
             <div class="stats-row">
               <div class="stat">
                 <span>{{ ranking.totalPoints }}</span>
-                <p>Your Points</p>
+                <p>ពិន្ទុរបស់អ្នក</p>
               </div>
 
               <div class="stat">
                 <span>{{ ranking.totalWins }}</span>
-                <p>1st Places</p>
+                <p>លេខ ១</p>
               </div>
             </div>
 
@@ -39,7 +39,7 @@
         </ion-card>
 
         <ion-button class="ranking-btn" expand="block" router-link="/home">
-          Back Home
+          ត្រឡប់ទៅទំព័រដើម
         </ion-button>
       </div>
     </ion-content>
@@ -59,14 +59,14 @@ import { getRanking } from "../services/storage";
 const ranking = getRanking();
 
 const players = [
-  { id: "human", name: "You" },
-  { id: "bot1", name: "Bot 1" },
-  { id: "bot2", name: "Bot 2" },
-  { id: "bot3", name: "Bot 3" },
+  { id: "human", name: "អ្នក" },
+  { id: "bot1", name: "បត ១" },
+  { id: "bot2", name: "បត ២" },
+  { id: "bot3", name: "បត ៣" },
 ];
 
 function formatScore(score: number) {
-  return `${score > 0 ? "+" : ""}${score} pts`;
+  return `${score > 0 ? "+" : ""}${score} ពិន្ទុ`;
 }
 </script>
 

@@ -5,9 +5,33 @@
   --ion-color-primary-contrast: #ffffff;
 }
 
+html,
+body,
+#app,
+ion-app,
+ion-router-outlet,
+ion-page {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  background: #052e16;
+}
+
+ion-content::part(scroll) {
+  overscroll-behavior: none;
+}
+
 @media screen and (orientation: portrait) {
   body::before {
-    content: "Please rotate your device to landscape mode";
+    content: "សូមបង្វិលឧបករណ៍របស់អ្នកទៅទម្រង់ផ្ដេក";
     position: fixed;
     inset: 0;
     background: #0f172a;

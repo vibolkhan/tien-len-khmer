@@ -2,20 +2,20 @@
   <ion-page>
     <ion-content class="settings">
       <div class="page">
-        <h1>Settings</h1>
+        <h1>ការកំណត់</h1>
 
         <ion-card class="settings-card">
           <ion-card-content>
             <ion-item class="setting-item">
               <ion-select
-                label="Bot Difficulty"
+                label="កម្រិតបត"
                 label-placement="stacked"
                 v-model="difficulty"
                 @ionChange="save"
               >
-                <ion-select-option value="easy">Easy</ion-select-option>
-                <ion-select-option value="medium">Medium</ion-select-option>
-                <ion-select-option value="hard">Hard</ion-select-option>
+                <ion-select-option value="easy">ងាយ</ion-select-option>
+                <ion-select-option value="medium">មធ្យម</ion-select-option>
+                <ion-select-option value="hard">ពិបាក</ion-select-option>
               </ion-select>
             </ion-item>
           </ion-card-content>
@@ -27,7 +27,7 @@
           color="danger"
           @click="reset"
         >
-          Reset Data
+          កំណត់ទិន្នន័យឡើងវិញ
         </ion-button>
 
         <ion-button
@@ -36,7 +36,7 @@
           fill="outline"
           router-link="/home"
         >
-          Back Home
+          ត្រឡប់ទៅទំព័រដើម
         </ion-button>
       </div>
     </ion-content>
@@ -69,7 +69,7 @@ function save() {
 }
 
 function reset() {
-  if (confirm("Reset ranking and saved game?")) {
+  if (confirm("តើចង់កំណត់ចំណាត់ថ្នាក់ និងហ្គេមដែលបានរក្សាទុកឡើងវិញឬ?")) {
     resetAllData();
   }
 }

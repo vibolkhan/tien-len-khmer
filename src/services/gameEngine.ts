@@ -346,10 +346,10 @@ export function createNewGame(difficulty: Difficulty): GameState {
   const deck = shuffle(createDeck());
 
   const players: Player[] = [
-    { id: "human", name: "You", isHuman: true, hand: [], passed: false },
-    { id: "bot1", name: "Bot 1", isHuman: false, hand: [], passed: false },
-    { id: "bot2", name: "Bot 2", isHuman: false, hand: [], passed: false },
-    { id: "bot3", name: "Bot 3", isHuman: false, hand: [], passed: false },
+    { id: "human", name: "អ្នក", isHuman: true, hand: [], passed: false },
+    { id: "bot1", name: "បត ១", isHuman: false, hand: [], passed: false },
+    { id: "bot2", name: "បត ២", isHuman: false, hand: [], passed: false },
+    { id: "bot3", name: "បត ៣", isHuman: false, hand: [], passed: false },
   ];
 
   players.forEach((player, index) => {
@@ -390,7 +390,9 @@ export function playCards(
   player.hand = player.hand.filter(
     (card) => !cards.some((selected) => selected.id === card.id),
   );
-  player.passed = false;
+  game.players.forEach((player) => {
+    player.passed = false;
+  });
 
   const selectedMove = {
     playerId,
@@ -467,7 +469,6 @@ export function nextTurn(game: GameState): GameState {
     const nextPlayer = game.players[nextIndex];
 
     if (
-      !nextPlayer.passed &&
       nextPlayer.hand.length > 0 &&
       !game.finishedPlayerIds.includes(nextPlayer.id)
     ) {

@@ -24,7 +24,8 @@ This game uses a custom Khmer-style Tien Len rule set.
 * A player may play any valid move when the table is empty.
 * A player must beat the previous move or pass.
 * Passing is only allowed after at least one move has been played.
-* When all other active players pass, the table is cleared and a new round starts.
+* Passing skips only the player's current turn; the player may play again when their next turn comes around.
+* When all other active players pass on the current table move, the table is cleared and a new round starts.
 * Finished players are skipped.
 * The game continues until all player placements are decided.
 

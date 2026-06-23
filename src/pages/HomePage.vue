@@ -1,36 +1,50 @@
 <template>
   <ion-page>
-    <ion-content class="home">
+    <ion-content class="home" fullscreen>
       <div class="home-bg">
         <div class="hero">
-          <div class="card-stack">
-            <span>♠</span><span>♥</span><span>♣</span><span>♦</span>
+          <div class="card-stack" aria-hidden="true">
+            <span class="black">♠</span>
+            <span class="red">♥</span>
+            <span class="black">♣</span>
+            <span class="red">♦</span>
           </div>
 
-          <h1>Tiến Lên<br />Miền Bắc</h1>
-          <p>Offline card battle against 3 bots</p>
+          <h1>ទៀនឡេន<br />ខ្មែរ</h1>
+          <p class="subtitle">លេងបៀក្រៅអ៊ីនធឺណិតជាមួយបត ៣ នាក់</p>
 
           <div class="menu">
-            <ion-button expand="block" size="large" @click="newGame">
-              New Game
+            <ion-button expand="block" class="main-btn" @click="newGame">
+              ហ្គេមថ្មី
             </ion-button>
 
             <ion-button
               expand="block"
-              size="large"
+              class="outline-btn"
+              fill="outline"
+              @click="enterFullscreen"
+            >
+              <ion-icon slot="start" :icon="expandOutline" aria-hidden="true" />
+              ពេញអេក្រង់
+            </ion-button>
+
+            <ion-button
+              expand="block"
+              class="outline-btn"
               fill="outline"
               :disabled="!hasSavedGame"
               @click="continueGame"
             >
-              Continue Game
+              បន្តហ្គេម
             </ion-button>
 
             <div class="grid-buttons">
-              <ion-button fill="outline" router-link="/ranking">
-                Ranking
+              <ion-button fill="outline" class="small-btn" router-link="/ranking">
+                ចំណាត់ថ្នាក់
               </ion-button>
-              <ion-button fill="outline" router-link="/settings">
-                Settings
+
+              <ion-button fill="outline" class="small-btn" router-link="/settings">
+                ការកំណត់
               </ion-button>
             </div>
           </div>
@@ -41,13 +55,18 @@
 </template>
 
 <script setup lang="ts">
-import { IonPage, IonContent, IonButton } from "@ionic/vue";
+import { IonPage, IonContent, IonButton, IonIcon } from "@ionic/vue";
+import { expandOutline } from "ionicons/icons";
 import { useRouter } from "vue-router";
 import { createNewGame } from "../services/gameEngine";
 import { getDifficulty, loadGame, saveGame } from "../services/storage";
 
 const router = useRouter();
 const hasSavedGame = !!loadGame();
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
 
 function newGame() {
   saveGame(createNewGame(getDifficulty()));
@@ -57,155 +76,289 @@ function newGame() {
 function continueGame() {
   router.push("/game");
 }
+
+async function enterFullscreen() {
+  const element = document.documentElement as FullscreenElement;
+
+  if (document.fullscreenElement) {
+    return;
+  }
+
+  try {
+    if (element.requestFullscreen) {
+      await element.requestFullscreen();
+      return;
+    }
+
+    await element.webkitRequestFullscreen?.();
+  } catch (error) {
+    console.warn("Fullscreen is not supported on this device/browser.", error);
+  }
+}
 </script>
+
 <style scoped>
 .home {
-  --background: radial-gradient(circle at top, #166534, #052e16 70%);
-  --overflow: hidden;
+  --background: radial-gradient(circle at top, #15803d 0%, #052e16 72%);
+  --overflow: auto;
   color: white;
-  width: 100%;
-  height: 100%;
 }
 
 .home::part(scroll) {
-  height: 100%;
   min-height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .home-bg {
   width: 100%;
-  height: 100%;
-  min-height: 100%;
-  max-height: 100%;
+  min-height: 100dvh;
   box-sizing: border-box;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  padding: max(12px, env(safe-area-inset-top))
+  padding:
+    max(14px, env(safe-area-inset-top))
     max(14px, env(safe-area-inset-right))
-    max(12px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-bottom))
     max(14px, env(safe-area-inset-left));
-
-  overflow: hidden;
 }
 
 .hero {
-  width: min(92vw, 560px);
-  max-height: 100%;
+  width: min(100%, 520px);
   box-sizing: border-box;
 
   text-align: center;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 26px;
 
-  padding: clamp(14px, 3.5vh, 30px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  padding: clamp(18px, 4vw, 32px);
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(14px);
 
   display: flex;
   flex-direction: column;
-  justify-content: center;
-
-  overflow: hidden;
+  align-items: stretch;
 }
 
 .card-stack {
   display: flex;
   justify-content: center;
-  gap: clamp(6px, 2vw, 10px);
-  font-size: clamp(20px, 4.5vh, 34px);
-  margin-bottom: clamp(6px, 1.5vh, 14px);
-  flex-shrink: 0;
+  gap: clamp(7px, 2vw, 12px);
+  margin-bottom: clamp(10px, 2.4vh, 18px);
 }
 
 .card-stack span {
-  width: clamp(34px, 8vh, 54px);
-  height: clamp(46px, 11vh, 72px);
-  background: white;
-  color: #111827;
-  border-radius: 10px;
+  width: clamp(36px, 11vw, 56px);
+  height: clamp(50px, 15vw, 76px);
+
+  background: #ffffff;
+  border-radius: 12px;
+
   display: grid;
   place-items: center;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+
+  font-size: clamp(22px, 6vw, 34px);
+  font-weight: 900;
+
+  box-shadow: 0 9px 20px rgba(0, 0, 0, 0.32);
+}
+
+.card-stack .black {
+  color: #111827;
+}
+
+.card-stack .red {
+  color: #dc2626;
 }
 
 h1 {
-  font-size: clamp(26px, 7vh, 46px);
-  line-height: 1.05;
-  margin: clamp(4px, 1vh, 10px) 0;
-  font-weight: 900;
-  flex-shrink: 0;
+  font-size: clamp(32px, 10vw, 52px);
+  line-height: 1.02;
+  margin: 0;
+  font-weight: 950;
+  letter-spacing: -0.04em;
 }
 
-p {
-  opacity: 0.85;
-  margin: 0 0 clamp(10px, 2.5vh, 24px);
-  flex-shrink: 0;
+.subtitle {
+  opacity: 0.88;
+  margin: 10px 0 18px;
+  font-size: clamp(14px, 3.8vw, 17px);
 }
 
 .menu {
   display: grid;
-  gap: clamp(8px, 1.8vh, 12px);
-  flex-shrink: 0;
+  gap: 11px;
 }
 
 .grid-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(8px, 1.8vh, 12px);
+  gap: 11px;
 }
 
 ion-button {
-  min-height: clamp(40px, 7vh, 52px);
+  margin: 0;
+  text-transform: none;
+  font-weight: 800;
+  letter-spacing: 0;
+  --border-radius: 16px;
 }
 
-@media screen and (max-height: 640px) {
+.main-btn,
+.outline-btn {
+  height: clamp(46px, 12vw, 56px);
+  font-size: clamp(15px, 4vw, 17px);
+}
+
+.small-btn {
+  height: clamp(42px, 11vw, 50px);
+  font-size: clamp(14px, 3.7vw, 16px);
+}
+
+.main-btn {
+  --background: #ffffff;
+  --background-hover: #f3f4f6;
+  --background-activated: #e5e7eb;
+  --color: #14532d;
+}
+
+.outline-btn,
+.small-btn {
+  --color: #ffffff;
+  --border-color: rgba(255, 255, 255, 0.75);
+  --background-hover: rgba(255, 255, 255, 0.12);
+  --background-activated: rgba(255, 255, 255, 0.2);
+}
+
+/* Small phones */
+@media screen and (max-width: 380px) {
+  .home-bg {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
   .hero {
-    padding: 14px;
     border-radius: 22px;
+    padding: 14px;
+  }
+
+  .card-stack {
+    margin-bottom: 8px;
   }
 
   .card-stack span {
     width: 34px;
     height: 46px;
+    font-size: 21px;
+    border-radius: 10px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    margin: 8px 0 12px;
+  }
+
+  .menu,
+  .grid-buttons {
+    gap: 8px;
+  }
+
+  .main-btn,
+  .outline-btn {
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .small-btn {
+    height: 40px;
+    font-size: 13px;
+  }
+}
+
+/* Short mobile screens */
+@media screen and (max-height: 650px) {
+  .home-bg {
+    align-items: flex-start;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .hero {
+    padding: 14px;
+  }
+
+  .card-stack {
+    margin-bottom: 8px;
+  }
+
+  .card-stack span {
+    width: 34px;
+    height: 46px;
+    font-size: 21px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .subtitle {
+    margin: 8px 0 12px;
+    font-size: 13px;
+  }
+
+  .menu,
+  .grid-buttons {
+    gap: 8px;
+  }
+
+  .main-btn,
+  .outline-btn,
+  .small-btn {
+    height: 40px;
+    font-size: 13px;
+  }
+}
+
+/* Very short landscape phones */
+@media screen and (orientation: landscape) and (max-height: 430px) {
+  .home-bg {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .hero {
+    width: min(100%, 760px);
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .card-stack {
+    grid-column: 1;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  h1,
+  .subtitle {
+    grid-column: 1;
   }
 
   h1 {
     font-size: 28px;
   }
 
-  p {
-    font-size: 14px;
-    margin-bottom: 10px;
-  }
-
-  ion-button {
-    min-height: 40px;
-  }
-}
-
-@media screen and (orientation: landscape) and (max-height: 430px) {
-  .hero {
-    width: min(88vw, 760px);
-    max-height: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .card-stack {
-    grid-column: 1;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-  }
-
-  h1,
-  p {
-    grid-column: 1;
+  .subtitle {
+    margin: 6px 0 0;
   }
 
   .menu {

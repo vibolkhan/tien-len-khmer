@@ -183,11 +183,11 @@ function isBomb(type: MoveType) {
   return type === "fourKind" || type === "fiveCardSameSuitSequence";
 }
 
-function isSingleTwo(move: PlayedMove | null) {
+function isSingleTwo(move: PlayedMove | null): move is PlayedMove {
   return move?.type === "single" && move.cards[0]?.rank === 15;
 }
 
-function isPairOfTwos(move: PlayedMove | null) {
+function isPairOfTwos(move: PlayedMove | null): move is PlayedMove {
   return move?.type === "pair" && move.cards.every((card) => card.rank === 15);
 }
 
@@ -268,7 +268,7 @@ function updatePointCuts(
     return;
   }
 
-  if (game.activeSingleTwoCut && isBomb(previousMove?.type ?? "invalid") && isBomb(selectedType)) {
+  if (previousMove && game.activeSingleTwoCut && isBomb(previousMove.type) && isBomb(selectedType)) {
     const currentCollectorId = game.activeSingleTwoCut.collectorId;
     if (currentCollectorId) {
       addSingleTwoCutLoser(game, currentCollectorId);

@@ -79,6 +79,14 @@ function isStraight(cards: Card[]) {
   return true;
 }
 
+function isFiveCardSameSuitSequence(cards: Card[]) {
+  return (
+    cards.length === 5 &&
+    cards.every((card) => card.suit === cards[0].suit) &&
+    isStraight(cards)
+  );
+}
+
 function isConsecutivePairs(cards: Card[], pairCount: number) {
   if (cards.length !== pairCount * 2) return false;
 
@@ -140,6 +148,10 @@ export function detectMoveType(cards: Card[]): MoveType {
     return "fourKind";
   }
 
+  if (isFiveCardSameSuitSequence(cards)) {
+    return "fiveCardSameSuitSequence";
+  }
+
   if (isDoublePairs(cards)) {
     return "doublePairs";
   }
@@ -168,7 +180,107 @@ function moveValue(cards: Card[]) {
 }
 
 function isBomb(type: MoveType) {
-  return type === "fourKind" || type === "threePairs" || type === "fourPairs";
+  return type === "fourKind" || type === "fiveCardSameSuitSequence";
+}
+
+function isSingleTwo(move: PlayedMove | null) {
+  return move?.type === "single" && move.cards[0]?.rank === 15;
+}
+
+function isPairOfTwos(move: PlayedMove | null) {
+  return move?.type === "pair" && move.cards.every((card) => card.rank === 15);
+}
+
+function isSingleTwoBomb(type: MoveType) {
+  return type === "fourKind" || type === "fiveCardSameSuitSequence";
+}
+
+function highestRank(cards: Card[]) {
+  return Math.max(...cards.map((card) => card.rank));
+}
+
+function repeatedRankValue(cards: Card[]) {
+  return [...groupByRank(cards).entries()].find(([, group]) => group.length > 1)?.[0] ?? 0;
+}
+
+function sameTypeCanBeat(selected: Card[], lastCards: Card[], type: MoveType) {
+  if (selected.length !== lastCards.length) return false;
+
+  if (type === "single" || type === "straight" || type === "fiveCardSameSuitSequence") {
+    return moveValue(selected) > moveValue(lastCards);
+  }
+
+  if (["pair", "triple", "fourKind"].includes(type)) {
+    return repeatedRankValue(selected) > repeatedRankValue(lastCards);
+  }
+
+  if (["doublePairs", "threePairs", "fourPairs"].includes(type)) {
+    return highestRank(selected) > highestRank(lastCards);
+  }
+
+  return moveValue(selected) > moveValue(lastCards);
+}
+
+function addCutPoints(game: GameState, playerId: string, points: number) {
+  game.pointCuts[playerId] = (game.pointCuts[playerId] ?? 0) + points;
+}
+
+function ensureSingleTwoCut(game: GameState) {
+  game.activeSingleTwoCut ??= { loserIds: [], collectorId: null };
+  return game.activeSingleTwoCut;
+}
+
+function addSingleTwoCutLoser(game: GameState, playerId: string) {
+  const cut = ensureSingleTwoCut(game);
+  if (!cut.loserIds.includes(playerId)) {
+    cut.loserIds.push(playerId);
+  }
+}
+
+function settleActiveSingleTwoCut(game: GameState) {
+  const cut = game.activeSingleTwoCut;
+  if (!cut) return;
+
+  if (cut.collectorId) {
+    cut.loserIds.forEach((playerId) => addCutPoints(game, playerId, -10));
+    addCutPoints(game, cut.collectorId, cut.loserIds.length * 10);
+  }
+
+  game.activeSingleTwoCut = null;
+}
+
+function updatePointCuts(
+  game: GameState,
+  previousMove: PlayedMove | null,
+  selectedMove: PlayedMove,
+) {
+  const selectedType = selectedMove.type;
+
+  if (isSingleTwo(previousMove) && selectedType === "single" && selectedMove.cards[0]?.rank === 15) {
+    addSingleTwoCutLoser(game, previousMove.playerId);
+    addSingleTwoCutLoser(game, selectedMove.playerId);
+    return;
+  }
+
+  if (isSingleTwo(previousMove) && isSingleTwoBomb(selectedType)) {
+    addSingleTwoCutLoser(game, previousMove.playerId);
+    ensureSingleTwoCut(game).collectorId = selectedMove.playerId;
+    return;
+  }
+
+  if (game.activeSingleTwoCut && isBomb(previousMove?.type ?? "invalid") && isBomb(selectedType)) {
+    const currentCollectorId = game.activeSingleTwoCut.collectorId;
+    if (currentCollectorId) {
+      addSingleTwoCutLoser(game, currentCollectorId);
+    }
+    game.activeSingleTwoCut.collectorId = selectedMove.playerId;
+    return;
+  }
+
+  if (isPairOfTwos(previousMove) && selectedType === "fourPairs") {
+    addCutPoints(game, previousMove.playerId, -20);
+    addCutPoints(game, selectedMove.playerId, 20);
+  }
 }
 
 function canPairTripleBeat(selected: Card[], lastCards: Card[]) {
@@ -197,31 +309,22 @@ export function canBeat(
     return canPairTripleBeat(selected, lastMove.cards);
   }
 
-  if (selectedType === lastType && selected.length === lastMove.cards.length) {
-    return moveValue(selected) > moveValue(lastMove.cards);
+  if (selectedType === lastType) {
+    return sameTypeCanBeat(selected, lastMove.cards, selectedType);
   }
 
-  const lastHasSingleTwo =
-    lastType === "single" && lastMove.cards[0].rank === 15;
-  const lastHasPairTwo =
-    lastType === "pair" && lastMove.cards.every((card) => card.rank === 15);
-
-  if (
-    lastHasSingleTwo &&
-    ["threePairs", "fourKind", "fourPairs"].includes(selectedType)
-  ) {
+  if (isSingleTwo(lastMove) && isSingleTwoBomb(selectedType)) {
     return true;
   }
 
-  if (lastHasPairTwo && selectedType === "fourPairs") {
+  if (isPairOfTwos(lastMove) && selectedType === "fourPairs") {
     return true;
   }
 
   if (isBomb(selectedType) && isBomb(lastType)) {
     const bombPower: Partial<Record<MoveType, number>> = {
-      threePairs: 1,
-      fourKind: 2,
-      fourPairs: 3,
+      fourKind: 1,
+      fiveCardSameSuitSequence: 2,
     };
 
     const selectedBombPower = bombPower[selectedType] ?? 0;
@@ -264,6 +367,8 @@ export function createNewGame(difficulty: Difficulty): GameState {
     tableCards: [],
     winnerId: null,
     finishedPlayerIds: [],
+    pointCuts: {},
+    activeSingleTwoCut: null,
     difficulty,
     startedAt: new Date().toISOString(),
   };
@@ -279,16 +384,22 @@ export function playCards(
 
   if (!canBeat(cards, game.lastMove)) return game;
 
+  const selectedType = detectMoveType(cards);
+  const previousMove = game.lastMove;
+
   player.hand = player.hand.filter(
     (card) => !cards.some((selected) => selected.id === card.id),
   );
   player.passed = false;
 
-  game.lastMove = {
+  const selectedMove = {
     playerId,
     cards,
-    type: detectMoveType(cards),
+    type: selectedType,
   };
+
+  updatePointCuts(game, previousMove, selectedMove);
+  game.lastMove = selectedMove;
 
   game.tableCards = cards;
 
@@ -297,6 +408,7 @@ export function playCards(
   }
 
   if (game.finishedPlayerIds.length >= game.players.length) {
+    settleActiveSingleTwoCut(game);
     return game;
   }
 
@@ -310,7 +422,10 @@ export function passTurn(game: GameState): GameState {
   player.passed = true;
 
   const availablePlayers = game.players.filter(
-    (player) => !player.passed && player.hand.length > 0,
+    (player) =>
+      !player.passed &&
+      player.hand.length > 0 &&
+      !game.finishedPlayerIds.includes(player.id),
   );
 
   if (availablePlayers.length <= 1) {
@@ -318,6 +433,7 @@ export function passTurn(game: GameState): GameState {
       player.passed = false;
     });
 
+    settleActiveSingleTwoCut(game);
     game.lastMove = null;
     game.tableCards = [];
   }
@@ -399,7 +515,34 @@ function getPossibleMoves(hand: Card[], game: GameState): Card[][] {
       pushUniqueMove(moves, sortedGroup.slice(0, 4));
   });
 
-  // Straights: same suit only, no 2
+  // Straights: mixed suits allowed, no 2
+  const straightRankGroups = groupedByRank
+    .filter(([rank]) => rank !== 15)
+    .map(([rank, cards]) => ({ rank, cards: sortCards(cards) }));
+
+  for (let start = 0; start < straightRankGroups.length; start++) {
+    const run = [straightRankGroups[start]];
+
+    for (let i = start + 1; i < straightRankGroups.length; i++) {
+      const previousRank = run.at(-1)!.rank;
+      const current = straightRankGroups[i];
+
+      if (current.rank === previousRank + 1) {
+        run.push(current);
+
+        if (run.length >= 3) {
+          pushUniqueMove(
+            moves,
+            run.map((item) => item.cards[0]),
+          );
+        }
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Five-card same-suit sequence bombs
   suits.forEach((suit) => {
     const suitedCards = sortCards(
       hand.filter((card) => card.suit === suit && card.rank !== 15),
@@ -414,8 +557,9 @@ function getPossibleMoves(hand: Card[], game: GameState): Card[][] {
         if (suitedCards[i].rank === last.rank + 1) {
           run.push(suitedCards[i]);
 
-          if (run.length >= 3) {
+          if (run.length === 5) {
             pushUniqueMove(moves, [...run]);
+            break;
           }
         } else if (suitedCards[i].rank > last.rank + 1) {
           break;

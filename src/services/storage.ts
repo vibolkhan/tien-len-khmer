@@ -16,6 +16,8 @@ export function loadGame(): GameState | null {
   return {
     ...game,
     finishedPlayerIds: game.finishedPlayerIds ?? [],
+    pointCuts: game.pointCuts ?? {},
+    activeSingleTwoCut: game.activeSingleTwoCut ?? null,
   };
 }
 

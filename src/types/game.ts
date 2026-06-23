@@ -31,8 +31,14 @@ export type MoveType =
   | "threePairs"
   | "fourPairs"
   | "fourKind"
+  | "fiveCardSameSuitSequence"
   | "pairTriple"
   | "invalid";
+
+export interface SingleTwoCutState {
+  loserIds: string[];
+  collectorId: string | null;
+}
 
 export interface GameState {
   players: Player[];
@@ -41,6 +47,8 @@ export interface GameState {
   tableCards: Card[];
   winnerId: string | null;
   finishedPlayerIds: string[];
+  pointCuts: Record<string, number>;
+  activeSingleTwoCut: SingleTwoCutState | null;
   difficulty: Difficulty;
   startedAt: string;
 }

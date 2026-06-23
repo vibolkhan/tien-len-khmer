@@ -273,6 +273,14 @@ function finishGame() {
     }
   });
 
+  Object.entries(game.value.pointCuts).forEach(([playerId, points]) => {
+    ranking.playerScores[playerId] = (ranking.playerScores[playerId] ?? 0) + points;
+
+    if (playerId === "human") {
+      ranking.totalPoints += points;
+    }
+  });
+
   saveRanking(ranking);
   clearGame();
   router.replace("/home");

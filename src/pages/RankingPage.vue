@@ -38,6 +38,29 @@
           </ion-card-content>
         </ion-card>
 
+        <ion-card v-if="onlineRanking" class="rank-card online-rank-card">
+          <ion-card-content>
+            <div class="online-heading">
+              <div>
+                <strong>Online Room {{ onlineRanking.roomCode }}</strong>
+                <p>{{ onlineRanking.gamesPlayed }} rounds played</p>
+              </div>
+              <span>Live series</span>
+            </div>
+
+            <div class="score-list">
+              <div
+                v-for="(player, index) in onlinePlayers"
+                :key="player.id"
+                class="score-row"
+              >
+                <span>#{{ index + 1 }} {{ player.name }}</span>
+                <strong>{{ formatScore(onlineRanking.playerScores[player.id] ?? 0) }}</strong>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
         <ion-button class="ranking-btn" expand="block" router-link="/home">
           ត្រឡប់ទៅទំព័រដើម
         </ion-button>
@@ -54,9 +77,18 @@ import {
   IonCardContent,
   IonButton,
 } from "@ionic/vue";
-import { getRanking } from "../services/storage";
+import { getRanking, loadOnlineRoomRanking } from "../services/storage";
 
 const ranking = getRanking();
+const onlineRanking = loadOnlineRoomRanking();
+const onlinePlayers = onlineRanking
+  ? [...onlineRanking.players].sort(
+      (a, b) =>
+        (onlineRanking.playerScores[b.id] ?? 0) -
+          (onlineRanking.playerScores[a.id] ?? 0) ||
+        a.joinedAt.localeCompare(b.joinedAt),
+    )
+  : [];
 
 const players = [
   { id: "human", name: "អ្នក" },
@@ -78,7 +110,7 @@ function formatScore(score: number) {
 
 .ranking {
   --background: radial-gradient(circle at top, #1e40af, #020617 75%);
-  --overflow: hidden;
+  --overflow: auto;
   color: white;
   width: 100%;
   height: 100%;
@@ -88,7 +120,8 @@ function formatScore(score: number) {
   width: 100%;
   height: 100%;
   min-height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 
   display: flex;
   align-items: center;
@@ -97,7 +130,7 @@ function formatScore(score: number) {
 
 .page {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   max-width: 520px;
   padding: 16px 20px;
   box-sizing: border-box;
@@ -107,7 +140,6 @@ function formatScore(score: number) {
   justify-content: center;
 
   text-align: center;
-  overflow: hidden;
 }
 
 h1 {
@@ -195,6 +227,33 @@ ion-card-content {
   --border-radius: 14px;
 
   flex-shrink: 0;
+}
+
+.online-rank-card {
+  margin-top: 0;
+}
+
+.online-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.online-heading p {
+  margin: 3px 0 0;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.online-heading > span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.24);
+  color: #bbf7d0;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 @media screen and (max-height: 640px) {

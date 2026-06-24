@@ -29,6 +29,15 @@ export interface OnlineSession {
   isHost: boolean;
 }
 
+export interface OnlineRoomRanking {
+  roomCode: string;
+  players: OnlineLobbyPlayer[];
+  gamesPlayed: number;
+  playerScores: Record<string, number>;
+  recordedGameIds: string[];
+  updatedAt: string;
+}
+
 export interface PlayedMove {
   playerId: string;
   cards: Card[];
@@ -56,6 +65,7 @@ export interface SingleTwoCutState {
 export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
+  openingPlayPending?: boolean;
   lastMove: PlayedMove | null;
   tableCards: Card[];
   winnerId: string | null;

@@ -1,0 +1,10 @@
+{
+  "name": "Tien Len Mien Bac",
+  "short_name": "Tien Len",
+  "start_url": "/home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#052e16",
+  "theme_color": "#052e16",
+  "orientation": "any"
+}

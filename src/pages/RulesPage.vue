@@ -20,6 +20,7 @@
           <li>លំដាប់កម្លាំងស៊ុតគឺ៖ ♠ Spades, ♣ Clubs, ♦ Diamonds, ♥ Hearts។</li>
           <li>អ្នកលេងម្នាក់ៗទទួលបានបៀ 13 សន្លឹក។</li>
           <li>អ្នកដែលមាន 3♠ ត្រូវចាប់ផ្តើមមុនគេ។</li>
+          <li>Before play starts, all four rank-3 cards are placed face-up on the table. The player dealt the 3 of spades then starts with exactly one remaining card.</li>
           <li>ពេលតុទទេ អ្នកលេងអាចដាក់បៀណាមួយដែលត្រឹមត្រូវបាន។</li>
           <li>អ្នកលេងត្រូវដាក់បៀឱ្យធំជាងបៀមុន ឬ Pass។</li>
           <li>អាច Pass បានតែបន្ទាប់ពីមានអ្នកដាក់បៀលើតុរួច។</li>
@@ -44,9 +45,9 @@
           <li>
             Straight / Sequence: បៀ 3 សន្លឹក ឬច្រើនជាងនេះ ដែលមានតម្លៃជាប់គ្នា។
           </li>
-          <li>Double pairs: គូបៀ 2 គូជាប់លំដាប់គ្នា។</li>
-          <li>Three consecutive pairs: គូបៀ 3 គូជាប់លំដាប់គ្នា។</li>
-          <li>Four consecutive pairs: គូបៀ 4 គូជាប់លំដាប់គ្នា។</li>
+          <li>Double pairs: គូបៀ 2 គូជាប់លំដាប់គ្នា។ Example: 3 3 4 4 is valid; 5 5 8 8 is invalid.</li>
+          <li>Three consecutive pairs: គូបៀ 3 គូជាប់លំដាប់គ្នា។ Example: 3 3 4 4 5 5 is valid.</li>
+          <li>Four consecutive pairs: គូបៀ 4 គូជាប់លំដាប់គ្នា។ Example: 3 3 4 4 5 5 6 6 is valid.</li>
           <li>Pair plus triple: មាន 1 pair និង 1 triple។</li>
           <li>
             Five-card same-suit sequence bomb: បៀ 5 សន្លឹកជាប់លំដាប់គ្នា
@@ -77,6 +78,8 @@
           <li>បៀ 2 មិនអាចប្រើក្នុង Straight បានទេ។</li>
           <li>Straight អាចរត់បានពី 3 ដល់ A ប៉ុណ្ណោះ។</li>
           <li>មិនអាចបន្តពី A ត្រឡប់ទៅ 3 បានទេ។</li>
+          <li>A same-suit sequence can only be beaten by another same-length sequence whose cards are also all one suit.</li>
+          <li>Example: 3♠ 4♠ 5♠ can be beaten by 3♣ 4♣ 5♣ (stronger suit), or 4♠ 5♠ 6♠ (higher number).</li>
         </ul>
         <div class="example-box">
           <p>ត្រឹមត្រូវ៖ 3 4 5, 6 7 8 9, 10 J Q K A, Q K A</p>

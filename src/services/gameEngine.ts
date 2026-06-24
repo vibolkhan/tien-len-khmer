@@ -91,19 +91,19 @@ function isFiveCardSameSuitSequence(cards: Card[]) {
 function isConsecutivePairs(cards: Card[], pairCount: number) {
   if (cards.length !== pairCount * 2) return false;
 
-  const groups = [...groupByRank(cards).entries()].sort((a, b) => a[0] - b[0]);
+  const rankGroups = [...groupByRank(cards).entries()].sort(
+    ([rankA], [rankB]) => rankA - rankB,
+  );
 
-  if (groups.length !== pairCount) return false;
+  const hasExactPairs =
+    rankGroups.length === pairCount &&
+    rankGroups.every(([rank, group]) => rank !== 15 && group.length === 2);
 
-  if (groups.some(([rank, group]) => rank === 15 || group.length !== 2)) {
-    return false;
-  }
+  if (!hasExactPairs) return false;
 
-  for (let i = 1; i < groups.length; i++) {
-    if (groups[i][0] !== groups[i - 1][0] + 1) return false;
-  }
-
-  return true;
+  return rankGroups.every(
+    ([rank], index) => index === 0 || rank === rankGroups[index - 1][0] + 1,
+  );
 }
 
 function isDoublePairs(cards: Card[]) {
@@ -180,6 +180,20 @@ function moveValue(cards: Card[]) {
   return cardPower(sortCards(cards).at(-1)!);
 }
 
+function isSameSuit(cards: Card[]) {
+  return cards.length > 0 && cards.every((card) => card.suit === cards[0].suit);
+}
+
+function straightCanBeat(selected: Card[], lastCards: Card[]) {
+  if (selected.length !== lastCards.length) return false;
+
+  // A sequence made entirely from one suit can only be answered by another
+  // sequence whose cards are also all from one suit.
+  if (isSameSuit(lastCards) && !isSameSuit(selected)) return false;
+
+  return moveValue(selected) > moveValue(lastCards);
+}
+
 function isBomb(type: MoveType) {
   return type === "fourKind" || type === "fiveCardSameSuitSequence";
 }
@@ -207,7 +221,11 @@ function repeatedRankValue(cards: Card[]) {
 function sameTypeCanBeat(selected: Card[], lastCards: Card[], type: MoveType) {
   if (selected.length !== lastCards.length) return false;
 
-  if (type === "single" || type === "straight" || type === "fiveCardSameSuitSequence") {
+  if (type === "straight") {
+    return straightCanBeat(selected, lastCards);
+  }
+
+  if (type === "single" || type === "fiveCardSameSuitSequence") {
     return moveValue(selected) > moveValue(lastCards);
   }
 
@@ -360,12 +378,19 @@ export function createNewGame(difficulty: Difficulty): GameState {
   const firstPlayerIndex = players.findIndex((player) =>
     player.hand.some((card) => card.rank === 3 && card.suit === "spades"),
   );
+  const openingThrees = sortCards(
+    players.flatMap((player) => player.hand.filter((card) => card.rank === 3)),
+  );
+  players.forEach((player) => {
+    player.hand = player.hand.filter((card) => card.rank !== 3);
+  });
 
   return {
     players,
     currentPlayerIndex: firstPlayerIndex >= 0 ? firstPlayerIndex : 0,
+    openingPlayPending: true,
     lastMove: null,
-    tableCards: [],
+    tableCards: openingThrees,
     winnerId: null,
     finishedPlayerIds: [],
     pointCuts: {},
@@ -397,12 +422,19 @@ export function createOnlineGame(
   const firstPlayerIndex = players.findIndex((player) =>
     player.hand.some((card) => card.rank === 3 && card.suit === "spades"),
   );
+  const openingThrees = sortCards(
+    players.flatMap((player) => player.hand.filter((card) => card.rank === 3)),
+  );
+  players.forEach((player) => {
+    player.hand = player.hand.filter((card) => card.rank !== 3);
+  });
 
   return {
     players,
     currentPlayerIndex: firstPlayerIndex >= 0 ? firstPlayerIndex : 0,
+    openingPlayPending: true,
     lastMove: null,
-    tableCards: [],
+    tableCards: openingThrees,
     winnerId: null,
     finishedPlayerIds: [],
     pointCuts: {},
@@ -414,6 +446,42 @@ export function createOnlineGame(
   };
 }
 
+export function isOpeningPlayPending(game: GameState): boolean {
+  if (typeof game.openingPlayPending === "boolean") {
+    return game.openingPlayPending;
+  }
+
+  const cardsInHands = game.players.reduce(
+    (total, player) => total + player.hand.length,
+    0,
+  );
+
+  const hasSetupThrees =
+    game.tableCards.length === 4 &&
+    game.tableCards.every((card) => card.rank === 3);
+
+  return (
+    !game.lastMove &&
+    ((cardsInHands === 48 && hasSetupThrees) ||
+      (cardsInHands === 52 && game.tableCards.length === 0))
+  );
+}
+
+export function canPlayCards(game: GameState, cards: Card[]): boolean {
+  if (isOpeningPlayPending(game)) {
+    const openingPlayer = game.players[game.currentPlayerIndex];
+
+    return (
+      cards.length === 1 &&
+      Boolean(
+        openingPlayer?.hand.some((card) => card.id === cards[0]?.id),
+      )
+    );
+  }
+
+  return canBeat(cards, game.lastMove);
+}
+
 export function playCards(
   game: GameState,
   playerId: string,
@@ -422,7 +490,8 @@ export function playCards(
   const player = game.players.find((p) => p.id === playerId);
   if (!player) return game;
 
-  if (!canBeat(cards, game.lastMove)) return game;
+  if (game.players[game.currentPlayerIndex]?.id !== playerId) return game;
+  if (!canPlayCards(game, cards)) return game;
 
   const selectedType = detectMoveType(cards);
   const previousMove = game.lastMove;
@@ -441,6 +510,7 @@ export function playCards(
   };
 
   updatePointCuts(game, previousMove, selectedMove);
+  game.openingPlayPending = false;
   game.lastMove = selectedMove;
 
   game.tableCards = cards;
@@ -576,6 +646,18 @@ function getPossibleMoves(hand: Card[], game: GameState): Card[][] {
             moves,
             run.map((item) => item.cards[0]),
           );
+
+          // Include every available same-suit version so bots can answer a
+          // same-suit sequence instead of considering only one mixed version.
+          suits.forEach((suit) => {
+            const sameSuitRun = run.map((item) =>
+              item.cards.find((card) => card.suit === suit),
+            );
+
+            if (sameSuitRun.every((card): card is Card => Boolean(card))) {
+              pushUniqueMove(moves, sameSuitRun);
+            }
+          });
         }
       } else {
         break;
@@ -671,7 +753,7 @@ function getPossibleMoves(hand: Card[], game: GameState): Card[][] {
     });
   });
 
-  return moves.filter((move) => canBeat(move, game.lastMove));
+  return moves.filter((move) => canPlayCards(game, move));
 }
 
 export function chooseBotMove(game: GameState, bot: Player): Card[] | null {

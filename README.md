@@ -12,6 +12,7 @@ This game uses a custom Khmer-style Tien Len rule set.
 * Easy / Medium / Hard bot setting
 * Local saved game using localStorage
 * Local ranking with placement-based points
+* Online room ranking that continues across Realtime lobby rounds
 * Basic Tien Len rule engine
 
 ## Rules
@@ -21,6 +22,7 @@ This game uses a custom Khmer-style Tien Len rule set.
 * Suit strength order is: spades, clubs, diamonds, hearts.
 * Each player receives 13 cards.
 * The player holding the `3 of spades` starts the game.
+* Before the first turn, all four rank-`3` cards are removed from the players' hands and placed face-up on the table as setup cards. They do not count as an active move. The player who was dealt the `3 of spades` then starts by playing exactly one remaining card.
 * A player may play any valid move when the table is empty.
 * A player must beat the previous move or pass.
 * Passing is only allowed after at least one move has been played.
@@ -65,12 +67,22 @@ Examples:
 10 J Q K A
 ```
 
-Suit does not need to match.
+Suit does not need to match when starting a new sequence.
 
 Example valid straight:
 
 ```text
 4♠ 5♦ 6♣
+```
+
+A sequence must be beaten by the same number of cards. If every card in the table sequence has the same suit, the beating sequence must also have all cards in one suit. It may win with a higher ending rank, or with a stronger suit when the ending rank is equal.
+
+Examples:
+
+```text
+3♠ 4♠ 5♠ is beaten by 3♣ 4♣ 5♣ (stronger suit).
+3♠ 4♠ 5♠ is beaten by 4♠ 5♠ 6♠ (higher number).
+3♠ 4♠ 5♠ is not beaten by 4♠ 5♦ 6♣ (not all one suit).
 ```
 
 Important straight rules:
@@ -97,12 +109,14 @@ A 2 3
 
 ### Double Pairs
 
-Double pairs means 2 pairs in rank order.
+Double pairs means exactly 2 pairs with consecutive ranks.
 
-Example:
+Examples:
 
 ```text
-5♠ 5♣ 6♠ 6♣
+Valid:   3 3 4 4
+Valid:   5 5 6 6
+Invalid: 5 5 8 8
 ```
 
 Rules:
@@ -115,12 +129,14 @@ Rules:
 
 ### Three Consecutive Pairs
 
-Three consecutive pairs means 3 pairs in rank order.
+Three consecutive pairs means exactly 3 pairs with consecutive ranks.
 
-Example:
+Examples:
 
 ```text
-5♠ 5♣ 6♠ 6♣ 7♠ 7♣
+Valid:   3 3 4 4 5 5
+Valid:   5 5 6 6 7 7
+Invalid: 5 5 7 7 8 8
 ```
 
 Rules:
@@ -135,12 +151,14 @@ Rules:
 
 ### Four Consecutive Pairs
 
-Four consecutive pairs means 4 pairs in rank order.
+Four consecutive pairs means exactly 4 pairs with consecutive ranks.
 
-Example:
+Examples:
 
 ```text
-6♠ 6♣ 7♠ 7♣ 8♠ 8♣ 9♠ 9♣
+Valid:   3 3 4 4 5 5 6 6
+Valid:   6 6 7 7 8 8 9 9
+Invalid: 6 6 7 7 9 9 10 10
 ```
 
 Rules:

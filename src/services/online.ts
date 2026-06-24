@@ -2,6 +2,7 @@ import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import type {
   GameState,
   OnlineLobbyPlayer,
+  OnlineRoomRanking,
   OnlineSession,
 } from "../types/game";
 
@@ -10,6 +11,8 @@ type LobbyPayload = {
   players: OnlineLobbyPlayer[];
   hostId: string;
   started: boolean;
+  readyPlayerIds?: string[];
+  ranking?: OnlineRoomRanking;
 };
 
 type LobbyHandlers = {
@@ -38,8 +41,6 @@ console.log(
     ? "Supabase Realtime is configured."
     : "Supabase Realtime is not configured.",
 );
-
-console.log(supabaseUrl, supabaseAnonKey);
 
 export function isRealtimeConfigured() {
   return Boolean(client);

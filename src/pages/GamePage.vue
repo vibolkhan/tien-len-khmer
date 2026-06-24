@@ -177,13 +177,14 @@ import {
   playCards,
   createNewGame,
   createOnlineGame,
-  canBeat,
+  canPlayCards,
+  isOpeningPlayPending,
   detectMoveType,
 } from "../services/gameEngine";
 
 import {
   clearGame,
-  clearOnlineSession,
+  clearOnlineGame,
   getRanking,
   loadGame,
   loadOnlineGame,
@@ -191,6 +192,7 @@ import {
   saveGame,
   saveOnlineGame,
   saveRanking,
+  recordOnlineGameResult,
 } from "../services/storage";
 import { getCardImage } from "../services/cardImage";
 import {
@@ -251,6 +253,9 @@ const bots = computed(() =>
 );
 const isOnlineGame = computed(() => game.value?.mode === "online");
 const isHumanTurn = computed(() => currentPlayer.value.id === human.value.id);
+const openingPlayPending = computed(() =>
+  game.value ? isOpeningPlayPending(game.value) : false,
+);
 
 const selectedCardsForAction = computed(() =>
   human.value.hand.filter((card) => selectedIds.value.includes(card.id)),
@@ -261,7 +266,9 @@ const canPlay = computed(
     isHumanTurn.value &&
     !isBotThinking.value &&
     selectedCardsForAction.value.length > 0 &&
-    canBeat(selectedCardsForAction.value, game.value?.lastMove ?? null),
+    Boolean(
+      game.value && canPlayCards(game.value, selectedCardsForAction.value),
+    ),
 );
 
 const canPass = computed(
@@ -311,6 +318,12 @@ const tableOwnerLabel = computed(() => {
 });
 
 const tableHint = computed(() => {
+  if (openingPlayPending.value) {
+    return isHumanTurn.value
+      ? "All four 3s are on the table. Start with one single card."
+      : `All four 3s are on the table. ${currentPlayer.value.name} starts with one single card.`;
+  }
+
   if (!game.value?.tableCards.length) {
     return isHumanTurn.value
       ? "ចាប់ផ្តើមដោយលេងបៀត្រឹមត្រូវណាមួយ។"
@@ -334,9 +347,17 @@ const selectedHint = computed(() => {
   if (!isHumanTurn.value) return `កំពុងរង់ចាំ ${currentPlayer.value.name}។`;
 
   if (selectedCardsForAction.value.length === 0) {
+    if (openingPlayPending.value) {
+      return "Select exactly one card to start the game.";
+    }
+
     return game.value?.tableCards.length
       ? `ជ្រើសបៀដើម្បីឈ្នះ ${tableMoveLabel.value}។`
       : "ជ្រើសបៀដើម្បីចាប់ផ្តើម។";
+  }
+
+  if (openingPlayPending.value && !canPlay.value) {
+    return "The opening play must be exactly one card.";
   }
 
   if (!canPlay.value) return "ការលេងមិនត្រឹមត្រូវ។ ជ្រើសបៀផ្សេងទៀត។";
@@ -479,10 +500,10 @@ function difficultyLabel(difficulty: string) {
 
 function suitLabel(suit: Card["suit"]) {
   const labels: Record<Card["suit"], string> = {
-    spades: "ស្ពេដ",
-    hearts: "ហាត",
-    clubs: "ក្លឹប",
-    diamonds: "ដាយមិន",
+    spades: "ប៊ិច",
+    hearts: "គឺ",
+    clubs: "ជួង",
+    diamonds: "ការ៉ូ",
   };
 
   return labels[suit];
@@ -736,8 +757,9 @@ function finishGame() {
   if (!game.value || !isGameOver.value) return;
 
   if (isOnlineGame.value) {
-    clearOnlineSession();
-    router.replace("/home");
+    recordOnlineGameResult(game.value);
+    clearOnlineGame();
+    router.replace(`/lobby/${onlineSession.value?.roomCode ?? game.value.roomCode}`);
     return;
   }
 
@@ -1293,17 +1315,23 @@ ion-content.game::part(scroll) {
 .player-hand {
   min-width: 0;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   height: calc(var(--card-w) * 1.42 + 44px);
   min-height: 0;
   display: flex;
+  flex-wrap: nowrap;
   justify-content: flex-start;
   align-items: flex-end;
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: hidden;
   padding: 24px 24px 10px;
   scroll-padding-inline: 24px;
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(250, 204, 21, 0.65) rgba(255, 255, 255, 0.08);
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1323,7 +1351,8 @@ ion-content.game::part(scroll) {
 .card-button {
   position: relative;
   z-index: 1;
-  flex: 0 0 var(--card-w);
+  flex: 0 0 auto;
+  min-width: var(--card-w);
   width: var(--card-w);
   height: calc(var(--card-w) * 1.42);
   /* margin-left: var(--card-overlap); */
@@ -1332,7 +1361,7 @@ ion-content.game::part(scroll) {
   border-radius: 8px;
   background: transparent;
   overflow: visible;
-  touch-action: manipulation;
+  touch-action: pan-x;
   transition:
     transform 0.14s ease,
     filter 0.14s ease,

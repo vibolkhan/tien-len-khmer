@@ -1,5 +1,5 @@
 <template>
-  <ion-page>
+  <ion-page :class="{ 'immersive-mode': isImmersiveMode }">
     <ion-content class="home" fullscreen>
       <div class="home-bg">
         <div class="hero">
@@ -67,8 +67,15 @@
 </template>
 
 <script setup lang="ts">
-import { IonPage, IonContent, IonButton, IonIcon } from "@ionic/vue";
+import {
+  IonPage,
+  IonContent,
+  IonButton,
+  IonIcon,
+  alertController,
+} from "@ionic/vue";
 import { expandOutline } from "ionicons/icons";
+import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { createNewGame } from "../services/gameEngine";
 import {
@@ -87,9 +94,14 @@ import {
 
 const router = useRouter();
 const hasSavedGame = !!loadGame();
+const isImmersiveMode = ref(false);
 
 type FullscreenElement = HTMLElement & {
   webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+type StandaloneNavigator = Navigator & {
+  standalone?: boolean;
 };
 
 function newGame() {
@@ -157,9 +169,33 @@ async function enterFullscreen() {
       return;
     }
 
-    await element.webkitRequestFullscreen?.();
+    if (element.webkitRequestFullscreen) {
+      await element.webkitRequestFullscreen();
+      return;
+    }
   } catch (error) {
     console.warn("Fullscreen is not supported on this device/browser.", error);
+  }
+
+  // iPhone Safari does not provide the Fullscreen API for normal page
+  // elements. Fill the available viewport and explain how to remove Safari's
+  // browser chrome completely.
+  isImmersiveMode.value = true;
+  requestAnimationFrame(() => window.scrollTo({ top: 1, behavior: "smooth" }));
+
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone =
+    (navigator as StandaloneNavigator).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches;
+
+  if (isIos && !isStandalone) {
+    const alert = await alertController.create({
+      header: "Full screen on iPhone",
+      message:
+        "Safari does not allow websites to enter true full screen. Tap Share, choose Add to Home Screen, then open the game from its Home Screen icon.",
+      buttons: ["OK"],
+    });
+    await alert.present();
   }
 }
 </script>
@@ -169,6 +205,19 @@ async function enterFullscreen() {
   --background: radial-gradient(circle at top, #15803d 0%, #052e16 72%);
   --overflow: auto;
   color: white;
+}
+
+.immersive-mode {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  z-index: 9999;
+  background: #052e16;
+}
+
+.immersive-mode .home-bg {
+  min-height: 100dvh;
 }
 
 .home::part(scroll) {

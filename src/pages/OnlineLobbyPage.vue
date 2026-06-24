@@ -17,16 +17,37 @@
           </div>
 
           <div class="seats" aria-label="Online lobby players">
-            <div v-for="seat in seatList" :key="seat.label" class="seat" :class="{ filled: seat.player }">
+            <div
+              v-for="seat in seatList"
+              :key="seat.label"
+              class="seat"
+              :class="{ filled: seat.player, ready: seat.player && isReady(seat.player.id) }"
+            >
               <span>{{ seat.label }}</span>
-              <strong>{{ seat.player?.name ?? 'Waiting...' }}</strong>
+              <strong>
+                {{ seat.player?.name ?? 'Waiting...' }}
+                <small v-if="seat.player">
+                  {{ scoreFor(seat.player.id) }} pts ? {{ isReady(seat.player.id) ? 'Ready' : 'Returning...' }}
+                </small>
+              </strong>
+            </div>
+          </div>
+
+          <div v-if="ranking.gamesPlayed > 0" class="standings">
+            <div class="standings-title">
+              <strong>Room ranking</strong>
+              <span>{{ ranking.gamesPlayed }} rounds</span>
+            </div>
+            <div v-for="(player, index) in rankedPlayers" :key="player.id" class="standing-row">
+              <span>#{{ index + 1 }} {{ player.name }}</span>
+              <strong>{{ scoreFor(player.id) }}</strong>
             </div>
           </div>
 
           <p class="status">{{ statusText }}</p>
 
           <ion-button expand="block" class="start-btn" :disabled="!canStart" @click="startGame">
-            Start 4 Player Game
+            {{ ranking.gamesPlayed > 0 ? 'Start Next Round' : 'Start 4 Player Game' }}
           </ion-button>
         </section>
       </main>
@@ -39,12 +60,19 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { IonButton, IonContent, IonPage } from "@ionic/vue";
 import { useRouter } from "vue-router";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { OnlineLobbyPlayer, OnlineSession } from "../types/game";
+import type {
+  OnlineLobbyPlayer,
+  OnlineRoomRanking,
+  OnlineSession,
+} from "../types/game";
 import { createOnlineGame } from "../services/gameEngine";
 import {
   clearOnlineSession,
+  createOnlineRoomRanking,
   loadOnlineSession,
+  loadOnlineRoomRanking,
   saveOnlineGame,
+  saveOnlineRoomRanking,
 } from "../services/storage";
 import { getDifficulty } from "../services/storage";
 import {
@@ -58,11 +86,23 @@ import {
 const router = useRouter();
 const session = ref<OnlineSession | null>(null);
 const players = ref<OnlineLobbyPlayer[]>([]);
+const readyPlayerIds = ref<string[]>([]);
+const ranking = ref<OnlineRoomRanking>(createOnlineRoomRanking("", []));
 const statusText = ref("Connecting...");
 let channel: RealtimeChannel | null = null;
 
 const roomCode = computed(() => session.value?.roomCode ?? "");
-const canStart = computed(() => Boolean(session.value?.isHost) && players.value.length === 4);
+const canStart = computed(
+  () =>
+    Boolean(session.value?.isHost) &&
+    players.value.length === 4 &&
+    readyPlayerIds.value.length === 4,
+);
+const rankedPlayers = computed(() =>
+  [...ranking.value.players].sort(
+    (a, b) => scoreFor(b.id) - scoreFor(a.id) || a.joinedAt.localeCompare(b.joinedAt),
+  ),
+);
 const seatList = computed(() =>
   Array.from({ length: 4 }, (_, index) => ({
     label: `Seat ${index + 1}`,
@@ -81,13 +121,23 @@ onMounted(async () => {
   }
 
   if (session.value.isHost) {
-    players.value = [
-      {
-        id: session.value.playerId,
-        name: session.value.playerName,
-        joinedAt: new Date().toISOString(),
-      },
-    ];
+    const savedRanking = loadOnlineRoomRanking();
+    ranking.value =
+      savedRanking?.roomCode === session.value.roomCode
+        ? savedRanking
+        : createOnlineRoomRanking(session.value.roomCode, []);
+
+    players.value = ranking.value.players.length
+      ? ranking.value.players
+      : [
+          {
+            id: session.value.playerId,
+            name: session.value.playerName,
+            joinedAt: new Date().toISOString(),
+          },
+        ];
+    readyPlayerIds.value = [session.value.playerId];
+    syncRankingPlayers();
   }
 
   try {
@@ -95,7 +145,14 @@ onMounted(async () => {
       onLobbyState: (state) => {
         if (state.roomCode !== session.value?.roomCode) return;
         players.value = state.players;
-        statusText.value = state.started ? "Game is starting..." : `${state.players.length}/4 players joined.`;
+        readyPlayerIds.value = state.readyPlayerIds ?? state.players.map((player) => player.id);
+        ranking.value =
+          state.ranking ??
+          createOnlineRoomRanking(state.roomCode, state.players);
+        saveOnlineRoomRanking(ranking.value);
+        statusText.value = state.started
+          ? "Game is starting..."
+          : `${readyPlayerIds.value.length}/4 players ready.`;
       },
       onJoinRequest: async (player) => {
         if (!session.value?.isHost || !channel) return;
@@ -103,6 +160,10 @@ onMounted(async () => {
         if (!exists && players.value.length < 4) {
           players.value = [...players.value, player];
         }
+        if (players.value.some((item) => item.id === player.id)) {
+          readyPlayerIds.value = [...new Set([...readyPlayerIds.value, player.id])];
+        }
+        syncRankingPlayers();
         await publishLobbyState(false);
       },
       onStartGame: (onlineGame) => {
@@ -133,17 +194,39 @@ async function publishLobbyState(started: boolean) {
     players: players.value,
     hostId: session.value.playerId,
     started,
+    readyPlayerIds: readyPlayerIds.value,
+    ranking: ranking.value,
   });
 }
 
 async function startGame() {
-  if (!channel || !session.value || players.value.length !== 4) return;
+  if (!channel || !session.value || !canStart.value) return;
 
   const onlineGame = createOnlineGame(players.value, getDifficulty(), session.value.roomCode);
+  syncRankingPlayers();
+  saveOnlineRoomRanking(ranking.value);
   saveOnlineGame(onlineGame);
   await publishLobbyState(true);
   await broadcastStartGame(channel, onlineGame);
   router.push("/game?mode=online");
+}
+
+function isReady(playerId: string) {
+  return readyPlayerIds.value.includes(playerId);
+}
+
+function scoreFor(playerId: string) {
+  return ranking.value.playerScores[playerId] ?? 0;
+}
+
+function syncRankingPlayers() {
+  ranking.value.roomCode = session.value?.roomCode ?? ranking.value.roomCode;
+  ranking.value.players = players.value;
+  players.value.forEach((player) => {
+    ranking.value.playerScores[player.id] ??= 0;
+  });
+  ranking.value.updatedAt = new Date().toISOString();
+  saveOnlineRoomRanking(ranking.value);
 }
 
 async function copyRoomCode() {
@@ -235,6 +318,9 @@ h1 {
 
 .seat.filled {
   border-style: solid;
+}
+
+.seat.ready {
   background: rgba(22, 163, 74, 0.28);
 }
 
@@ -250,6 +336,44 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: right;
+}
+
+.seat small {
+  display: block;
+  margin-top: 2px;
+  color: #fde68a;
+}
+
+.standings {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.standings-title,
+.standing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.standings-title {
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.standings-title span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.standing-row strong {
+  color: #fde68a;
 }
 
 .start-btn {
